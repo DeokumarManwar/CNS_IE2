@@ -3,6 +3,23 @@ const router = require("express").Router();
 const user = require("../models/user");
 const crypto = require("crypto");
 
+// Function to perform columnar transposition
+function transpose(input, key) {
+  let output = "";
+  const keyLength = key.length;
+  const inputLength = input.length;
+
+  for (let i = 0; i < keyLength; i++) {
+    let index = i;
+    while (index < inputLength) {
+      output += input[index];
+      index += keyLength;
+    }
+  }
+
+  return output;
+}
+
 router.get("/login", async (req, res) => {
   try {
     const username = req.headers.username;
@@ -24,7 +41,13 @@ router.get("/login", async (req, res) => {
 
       console.log(decipheredHash, storedTransposedHash);
       if (decipheredHash === storedTransposedHash) {
-        return res.status(200).send({ success: true, user: userRecord });
+        return res
+          .status(200)
+          .send({
+            success: true,
+            user: userRecord,
+            Hashpassword: decipheredHash,
+          });
       }
     }
 
@@ -90,25 +113,10 @@ router.post("/signup", async (req, res) => {
 
   const savedUser = await user.create(newUser);
 
-  return res.status(200).send({ success: true, user: savedUser });
+  return res
+    .status(200)
+    .send({ success: true, user: savedUser, Hashpassword: transposedHash });
 });
-
-// Function to perform columnar transposition
-function transpose(input, key) {
-  let output = "";
-  const keyLength = key.length;
-  const inputLength = input.length;
-
-  for (let i = 0; i < keyLength; i++) {
-    let index = i;
-    while (index < inputLength) {
-      output += input[index];
-      index += keyLength;
-    }
-  }
-
-  return output;
-}
 
 router.get("/getAll", async (req, res) => {
   try {

@@ -82,6 +82,7 @@ export const Signup = () => {
   const signupHandler = () => {
     createUser(enteredFirstName, enteredCPassword, userImageCover).then(
       (res) => {
+        console.log(res);
         if (res) {
           dispatch(loaderAction.changeLoaderStateFalse());
           navigate("/login");

@@ -53,6 +53,7 @@ export const Login = () => {
     if (formIsValid) {
       login(enteredUsername, enteredPassword)
         .then((res) => {
+          console.log(res.data);
           if (res) {
             dispatch(
               loginAction.addLogin({
