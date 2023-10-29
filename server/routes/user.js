@@ -5,18 +5,35 @@ const crypto = require("crypto");
 
 // Function to perform columnar transposition
 function transpose(input, key) {
-  let output = "";
   const keyLength = key.length;
   const inputLength = input.length;
+  const numRows = Math.ceil(inputLength / keyLength);
+  const grid = [];
 
-  for (let i = 0; i < keyLength; i++) {
-    let index = i;
-    while (index < inputLength) {
-      output += input[index];
-      index += keyLength;
+  // Create a grid to hold the characters
+  for (let i = 0; i < numRows; i++) {
+    grid.push([]);
+  }
+
+  // Populate the grid with characters from the input
+  for (let i = 0; i < inputLength; i++) {
+    const row = Math.floor(i / keyLength);
+    const col = i % keyLength;
+    grid[row][col] = input[i];
+  }
+
+  // Read characters from the grid based on the key order
+  let output = "";
+  for (let col = 0; col < keyLength; col++) {
+    const keyIndex = key.indexOf(col + 1);
+    for (let row = 0; row < numRows; row++) {
+      if (grid[row][keyIndex] !== undefined) {
+        output += grid[row][keyIndex];
+      }
     }
   }
 
+  console.log(output);
   return output;
 }
 
@@ -26,28 +43,29 @@ router.get("/login", async (req, res) => {
     const providedPassword = req.headers.password;
 
     const userRecord = await user.findOne({ userName: username });
+    console.log(username, userRecord);
+
+    // Decipher the transposed hash and compare it to the stored hash
+    const transpositionKey = process.env.key; // Replace with your key
+    const storedTransposedHash = userRecord.password;
 
     if (userRecord) {
+      console.log("Was I here");
       // SHA-1 hashing for the provided password
+      const decipheredHash = transpose(providedPassword, transpositionKey);
+      console.log(decipheredHash);
       const sha1Hash = crypto
         .createHash("sha1")
-        .update(providedPassword)
+        .update(decipheredHash)
         .digest("hex");
 
-      // Decipher the transposed hash and compare it to the stored hash
-      const transpositionKey = process.env.key; // Replace with your key
-      const storedTransposedHash = userRecord.password;
-      const decipheredHash = transpose(sha1Hash, transpositionKey);
-
-      console.log(decipheredHash, storedTransposedHash);
-      if (decipheredHash === storedTransposedHash) {
-        return res
-          .status(200)
-          .send({
-            success: true,
-            user: userRecord,
-            Hashpassword: decipheredHash,
-          });
+      console.log(sha1Hash, storedTransposedHash);
+      if (sha1Hash === storedTransposedHash) {
+        return res.status(200).send({
+          success: true,
+          user: userRecord,
+          Hashpassword: sha1Hash,
+        });
       }
     }
 
@@ -90,32 +108,41 @@ router.get("/getOne/:id", async (req, res) => {
 });
 
 router.post("/signup", async (req, res) => {
-  const { userName, password, image_url } = req.body;
-  const existingUser = await user.findOne({ userName: userName });
+  try {
+    const { userName, password, image_url } = req.body;
+    console.log(userName, password, image_url);
+    const existingUser = await user.findOne({ userName: userName });
 
-  if (existingUser) {
-    return res.status(409).json({ message: "User Already Exists" });
+    const transpositionKey = process.env.key; // Replace with your key
+
+    if (existingUser) {
+      return res.status(409).json({ message: "User Already Exists" });
+    }
+
+    const decipheredHash = transpose(password, transpositionKey);
+    console.log(decipheredHash);
+
+    const sha1Hash = crypto
+      .createHash("sha1")
+      .update(decipheredHash)
+      .digest("hex");
+
+    console.log(sha1Hash);
+
+    const newUser = {
+      userName: userName,
+      password: sha1Hash,
+      image_url: image_url,
+    };
+
+    const savedUser = await user.create(newUser);
+
+    return res
+      .status(200)
+      .send({ success: true, user: savedUser, Hashpassword: sha1Hash });
+  } catch (e) {
+    return res.status(500).json({ message: e });
   }
-
-  // SHA-1 hashing
-  const sha1Hash = crypto.createHash("sha1").update(password).digest("hex");
-
-  // Columnar Transposition Cipher
-  const transpositionKey = process.env.key; // Replace with your key
-  const transposedHash = transpose(sha1Hash, transpositionKey);
-
-  console.log(transposedHash);
-  const newUser = {
-    userName,
-    password: transposedHash,
-    image_url,
-  };
-
-  const savedUser = await user.create(newUser);
-
-  return res
-    .status(200)
-    .send({ success: true, user: savedUser, Hashpassword: transposedHash });
 });
 
 router.get("/getAll", async (req, res) => {
